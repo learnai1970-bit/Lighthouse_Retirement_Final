@@ -34,23 +34,22 @@ export default function UserProfile() {
 
   const loadProfile = async () => {
     try {
-      // 1. PRIMARY: Load from LocalStorage immediately for speed/stability
+      // 1. PRIMARY: Load from LocalStorage immediately for stability
       const savedProfile = localStorage.getItem('userProfile');
       if (savedProfile) {
         setProfile(JSON.parse(savedProfile));
       }
 
-      // 2. SYNC: Check if user is logged in and fetch cloud data
+      // 2. SYNC: Fetch cloud data without crashing if it doesn't exist
       const { data: { user } } = await supabase.auth.getUser();
       if (user) {
         const { data, error } = await supabase
           .from('profiles')
           .select('*')
           .eq('id', user.id)
-          .single();
+          .maybeSingle(); // FIX: Changed from .single() to prevent 406 error
 
         if (data && !error) {
-          // Update state and refresh LocalStorage with cloud data
           setProfile(data);
           localStorage.setItem('userProfile', JSON.stringify(data));
         }
@@ -65,11 +64,11 @@ export default function UserProfile() {
   const saveProfile = async () => {
     setSaving(true);
     try {
-      // 1. SAFETY: Always save to LocalStorage first so formulas don't break
+      // 1. SAFETY: Save to LocalStorage first
       localStorage.setItem('userProfile', JSON.stringify(profile));
       window.dispatchEvent(new Event('userProfileUpdated'));
 
-      // 2. CLOUD BACKUP: Upsert data to Supabase profiles table
+      // 2. CLOUD BACKUP: Create or update the row in Supabase
       const { data: { user } } = await supabase.auth.getUser();
       if (user) {
         const { error } = await supabase
@@ -94,8 +93,7 @@ export default function UserProfile() {
       setTimeout(() => setShowSuccess(false), 2000);
     } catch (error: any) {
       console.error('Error saving profile:', error);
-      // We still show success if LocalStorage worked, but log the cloud error
-      setShowSuccess(true);
+      setShowSuccess(true); // Still show success as LocalStorage worked
       setTimeout(() => setShowSuccess(false), 2000);
     } finally {
       setSaving(false);
@@ -115,17 +113,20 @@ export default function UserProfile() {
 
   const yearsToRetirement = profile.target_retirement_age - profile.current_age;
   const yearsInRetirement = profile.life_expectancy - profile.target_retirement_age;
-  const workingPercentage = profile.life_expectancy > 0
-    ? ((profile.target_retirement_age - profile.current_age) / (profile.life_expectancy - profile.current_age)) * 100
+  
+  // Prevent division by zero or negative percentages
+  const totalYears = profile.life_expectancy - profile.current_age;
+  const workingPercentage = totalYears > 0
+    ? (Math.max(0, yearsToRetirement) / totalYears) * 100
     : 0;
-  const retirementPercentage = profile.life_expectancy > 0
-    ? ((profile.life_expectancy - profile.target_retirement_age) / (profile.life_expectancy - profile.current_age)) * 100
+  const retirementPercentage = totalYears > 0
+    ? (Math.max(0, yearsInRetirement) / totalYears) * 100
     : 0;
 
   if (loading) {
     return (
-      <div className="p-8">
-        <div className="text-slate-400">Loading profile...</div>
+      <div className="p-8 flex items-center justify-center min-h-screen">
+        <div className="text-slate-400">Opening the Vault...</div>
       </div>
     );
   }
