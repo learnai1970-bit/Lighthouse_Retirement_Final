@@ -1,53 +1,95 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { supabase } from '../lib/supabase';
 
-export default function Login() {
-  const handleGoogleLogin = async () => {
-    try {
-      const { error } = await supabase.auth.signInWithOAuth({
-        provider: 'google',
-        options: { 
-          // Hardcoding the local address ensures Google knows exactly where to return
-          redirectTo: 'http://localhost:5173',
-          queryParams: {
-            access_type: 'offline',
-            prompt: 'consent',
-          },
-        }
-      });
+export const Login = () => {
+  const [email, setEmail] = useState('');
+  const [pin, setPin] = useState('');
+  const [step, setStep] = useState(1);
+  const [loading, setLoading] = useState(false);
 
-      if (error) throw error;
-    } catch (error) {
-      console.error('Error logging in:', error);
-      alert('Error connecting to Google. Please check your console.');
+  const handleAccess = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setLoading(true);
+    
+    // Attempt to sign in
+    const { error: signInError } = await supabase.auth.signInWithPassword({
+      email,
+      password: pin,
+    });
+
+    // If user doesn't exist, create them automatically
+    if (signInError && signInError.message.includes('Invalid login credentials')) {
+      const { error: signUpError } = await supabase.auth.signUp({
+        email,
+        password: pin,
+      });
+      if (signUpError) alert(signUpError.message);
+    } else if (signInError) {
+      alert(signInError.message);
     }
+    setLoading(false);
   };
 
   return (
-    <div className="min-h-screen bg-[#020617] flex items-center justify-center p-4">
-      <div className="bg-[#0f172a] p-10 rounded-2xl border border-slate-800 text-center max-w-md w-full">
-        <h1 className="text-3xl font-bold text-white mb-2">Financial Dignity</h1>
-        <p className="text-slate-400 mb-8 text-sm">
-          Plan your future with precision. 
-          Sign in to start your 90-minute free preview.
-        </p>
+    <div className="flex flex-col items-center justify-center min-h-screen bg-[#0b1120] text-white p-4">
+      <div className="w-full max-w-md bg-[#172033] p-8 rounded-2xl border border-slate-700 shadow-2xl">
+        <h1 className="text-2xl font-bold mb-2 text-center">Financial Dignity Vault</h1>
+        <p className="text-slate-400 text-center mb-8 text-sm">Enter your credentials to unlock your data.</p>
         
-        <button 
-          onClick={handleGoogleLogin}
-          className="w-full bg-white text-black py-3 rounded-lg font-bold hover:bg-slate-200 transition-all flex items-center justify-center gap-2"
-        >
-          <img 
-            src="https://www.google.com/favicon.ico" 
-            alt="Google" 
-            className="w-4 h-4" 
-          />
-          Sign in with Google
-        </button>
-        
-        <p className="mt-6 text-xs text-slate-500">
-          By signing in, you agree to our terms of service.
-        </p>
+        <form onSubmit={handleAccess} className="space-y-6">
+          {step === 1 ? (
+            <div className="space-y-4">
+              <div className="space-y-2">
+                <label className="text-xs font-semibold uppercase text-slate-500 ml-1">Identity</label>
+                <input 
+                  type="email" 
+                  placeholder="email@example.com" 
+                  value={email} 
+                  onChange={(e) => setEmail(e.target.value)} 
+                  className="w-full p-4 rounded-xl bg-[#0b1120] border border-slate-600 focus:border-blue-500 outline-none"
+                  required 
+                />
+              </div>
+              <button 
+                type="button" 
+                onClick={() => setStep(2)} 
+                className="w-full py-4 bg-blue-600 hover:bg-blue-700 rounded-xl font-bold transition-all"
+              >
+                Next Step
+              </button>
+            </div>
+          ) : (
+            <div className="space-y-4">
+              <div className="space-y-2">
+                <label className="text-xs font-semibold uppercase text-slate-500 ml-1">8-Digit Vault PIN</label>
+                <input 
+                  type="password" 
+                  maxLength={8} 
+                  placeholder="••••••••" 
+                  value={pin} 
+                  onChange={(e) => setPin(e.target.value.replace(/\D/g, ""))} 
+                  className="w-full text-center text-3xl tracking-[0.5em] p-4 rounded-xl bg-[#0b1120] border border-slate-600 focus:border-green-500 outline-none font-mono"
+                  required 
+                />
+              </div>
+              <button 
+                type="submit" 
+                disabled={loading || pin.length < 8} 
+                className="w-full py-4 bg-green-600 hover:bg-green-700 rounded-xl font-bold transition-all disabled:opacity-50"
+              >
+                {loading ? 'Verifying...' : 'Unlock Vault'}
+              </button>
+              <button 
+                type="button" 
+                onClick={() => setStep(1)} 
+                className="w-full text-sm text-slate-500 hover:text-white transition-colors"
+              >
+                Change Email
+              </button>
+            </div>
+          )}
+        </form>
       </div>
     </div>
   );
-}
+};
