@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { supabase } from '../lib/supabase';
 
-export const Login = () => {
+  const Login = () => {
   const [email, setEmail] = useState('');
   const [pin, setPin] = useState('');
   const [step, setStep] = useState(1);
@@ -93,3 +93,4 @@ export const Login = () => {
     </div>
   );
 };
+export default Login;
