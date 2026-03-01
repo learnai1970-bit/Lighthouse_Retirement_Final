@@ -29,15 +29,25 @@ export default function MilestoneNavigator() {
   const refresh = async () => {
     try {
       setLoading(true);
+      
+      // 1. Identify the active user for RLS filtering
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) {
+        setMilestones([]);
+        return;
+      }
+
+      // 2. Fetch milestones specifically for this user
       const { data, error } = await supabase
         .from('milestones')
         .select('*')
+        .eq('user_id', user.id)
         .order('target_age', { ascending: true });
 
       if (error) throw error;
       setMilestones(data || []);
     } catch (err) {
-      console.error('Error fetching:', err);
+      console.error('Error fetching milestones:', err);
     } finally {
       setLoading(false);
     }
@@ -46,12 +56,22 @@ export default function MilestoneNavigator() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
+      // 1. Get user identity to satisfy RLS insertion rules
+      const { data: { user } } = await supabase.auth.getUser();
+      
+      if (!user) {
+        alert('Authentication required: Please log in to save milestones.');
+        return;
+      }
+
+      // 2. Insert record mapped to the user_id
       const { error } = await supabase.from('milestones').insert([{
         name: formData.name,
         current_cost: parseFloat(formData.current_cost),
         target_age: parseInt(formData.target_age),
         category: formData.category,
-        inflation_rate: parseFloat(formData.inflation_rate)
+        inflation_rate: parseFloat(formData.inflation_rate),
+        user_id: user.id
       }]);
 
       if (error) throw error;
@@ -60,7 +80,7 @@ export default function MilestoneNavigator() {
       setFormData({ name: '', current_cost: '', target_age: '', category: 'Education', inflation_rate: '6' });
       refresh();
     } catch (err) {
-      alert('Error saving milestone. Check console for details.');
+      alert('Error saving milestone. Check console for RLS or Database issues.');
       console.error(err);
     }
   };
@@ -84,7 +104,6 @@ export default function MilestoneNavigator() {
         </button>
       </div>
 
-      {/* MODAL OVERLAY */}
       {isModalOpen && (
         <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
           <div className="bg-slate-900 border border-slate-700 w-full max-w-md rounded-2xl p-6 shadow-2xl">
@@ -124,7 +143,6 @@ export default function MilestoneNavigator() {
         </div>
       )}
 
-      {/* List logic remains same as before... */}
       <div className="grid gap-4">
         {milestones.length === 0 ? (
           <div className="text-center py-12 bg-slate-900 rounded-xl border border-dashed border-slate-700">
