@@ -48,7 +48,7 @@ const Login = () => {
           <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-blue-500/10 mb-4">
             <Lock className="w-8 h-8 text-blue-500" />
           </div>
-          <h1 className="text-2xl font-bold text-white">Financial Dignity Vault</h1>
+          <h1 className="text-2xl font-bold text-white">Lighthouse Retirement Planning</h1>
           <p className="text-slate-400 mt-2">Enter your email and 8-digit PIN to unlock</p>
         </div>
 
